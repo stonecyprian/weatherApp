@@ -1,0 +1,485 @@
+
+import sys
+import requests #( request module is used to make HTTP requests to web servers and APIs, it allows you to send GET, POST, PUT, DELETE requests and handle responses from the server)
+
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout
+from PyQt5.QtCore import Qt
+
+class UcheWeatherApp(QWidget):
+  def __init__(self):
+    super().__init__()
+    self.city_label = QLabel("Enter city name: ", self)
+    self.city_input = QLineEdit(self)
+    self.get_weather_button = QPushButton("Get Weather", self)
+    self.temperature_label = QLabel(self)
+    self.emoji_label = QLabel(self)
+    self.label_description = QLabel(self)
+    self.initUI()
+
+# "☀", 
+
+  def initUI(self):
+    self.setWindowTitle("Weather App")
+
+    vbox = QVBoxLayout()
+
+    vbox.addWidget(self.city_label)
+    vbox.addWidget(self.city_input)
+    vbox.addWidget(self.get_weather_button)
+    vbox.addWidget(self.temperature_label)
+    vbox.addWidget(self.emoji_label)
+    vbox.addWidget(self.label_description)
+
+    self.setLayout(vbox)
+
+    self.city_label.setAlignment(Qt.AlignCenter)
+    self.temperature_label.setAlignment(Qt.AlignCenter)
+    self.city_input.setAlignment(Qt.AlignCenter)
+    self.emoji_label.setAlignment(Qt.AlignCenter)
+    self.label_description.setAlignment(Qt.AlignCenter)
+
+    self.city_label.setObjectName("city_label")
+    self.city_input.setObjectName("input_label")
+    self.get_weather_button.setObjectName("weather_label")
+    self.temperature_label.setObjectName("temp_label")
+    self.emoji_label.setObjectName("emoji_label")
+    self.label_description.setObjectName("label_descript")
+
+
+    self.setStyleSheet("""
+        Qlabel, QPushButton{
+              font-family: calibri;
+        }
+        QLabel#city_label{
+              font-size: 40px;
+              font-style: italic;
+        }
+
+        QLineEdit#input_label{
+              font-size: 40px;
+              
+        }
+        QPushButton#weather_label {
+        font-size: 30px;
+        font-weight: bold;
+        }
+
+        QLabel#temp_label{
+        font-size: 75px;
+        }
+
+        QLabel#emoji_label{
+            font-size: 100px;
+            font-family: segoe UI emoji;
+        }
+
+        QLabel#label_descript{
+            font-size: 50px;
+            
+        }
+    """)
+
+    # key: a65a9e40fd60aada4c63d4146372e3e4: https://api.openweathermap.org/data/2.5/weather?q={city name}&appid={API key}
+
+    self.get_weather_button.clicked.connect(self.get_weather)
+
+  def get_weather(self):
+    api_key = "a65a9e40fd60aada4c63d4146372e3e4"
+    city = self.city_input.text()
+    url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}"
+
+# try block is used to catch and handle exceptions that may occur during the execution of the code inside it. If an exception occurs, the code inside the except block will be executed instead of crashing the program.
+    try:
+        response = requests.get(url)
+        response.raise_for_status()  # Raise an exception for HTTP errors
+        data = response.json()
+        print(data)
+
+
+        if data["cod"] == 200:
+          self.display_weather(data)
+
+# this HTTPError exception is raised when the server returns an error response (e.g., 404 Not Found, 500 Internal Server Error). It allows you to handle these errors gracefully in your code.
+    except requests.exceptions.HTTPError as http_err:
+      match response.status_code:
+        case 400:
+          self.display_error("Bad request:\nPlease check your input and try again.")
+        case 401:
+          self.display_error("Unauthorized:\nPlease check your API key and try again.")
+        case 403:
+          self.display_error("Forbidden:\nAccess is denied.")
+        case 404:
+          self.display_error("Not Found:\nPlease check the city name and try again.")
+        case 500:
+          self.display_error("Internal Server Error:\nPlease try again later.")
+        case 502:
+          self.display_error("Bad Gateway:\nInvalid response from the server.")
+        case 503:
+                  self.display_error("Service Unavailable:\nServer is down.")
+        case 504:
+          self.display_error("Gateway timeout:\nNo response from the server.")
+        case _:
+          self.display_error(f"HTTP error occurred: {http_err}")
+                            
+                             
+                                         
+                   
+# this exception is raised for any other request-related errors, such as connection issues, timeouts, or invalid URLs. It allows you to catch and handle these errors without crashing your program.
+    except requests.exceptions.ConnectionError:
+      self.display_error("Connection Error:\nCheck your internet")
+    except requests.exceptions.Timeout:
+          self.display_error("Timedout Error:\nthe request timedout")
+    except requests.exceptions.TooManyRedirects:
+          self.display_error("Too many Redirect:\n check your URL")
+
+    except requests.exceptions.RequestException as req_error:
+      self.display_error(f"Request Error:\n{req_error}")
+
+  def display_error(self, message):
+    self.temperature_label.setStyleSheet("font-size: 25px;")
+    self.temperature_label.setText(message)
+    self.emoji_label.clear()
+    self.label_description.clear()
+
+  def display_weather(self, data):
+      self.temperature_label.setStyleSheet("font-size: 75px;")
+      temperature_k = data["main"]["temp"]
+      temperature_c = temperature_k - 273.15
+      temperature_f = (temperature_k * 9/5) - 459.67
+      weather_id = data["weather"][0]["id"]
+      weather_description = data["weather"][0]["description"]
+
+      self.temperature_label.setText(f"{temperature_f:.0f}°F")
+      self.emoji_label.setText(self.get_weather_emoji(weather_id))
+      self.label_description.setText(weather_description)
+
+
+  @staticmethod
+  def get_weather_emoji(weather_id):
+    if 200 <= weather_id < 232:
+      return "⛈"  # Thunderstorm
+    elif 300 <= weather_id < 321:
+      return "🌦"  # Drizzle
+    elif 500 <= weather_id < 521:
+      return "🌧"  # Rain
+    elif 600 <= weather_id < 622:
+      return "❄"  # Snow
+    elif 701 <= weather_id < 741:
+      return "🌫"  # Atmosphere (fog, mist, etc.)
+    elif weather_id == 762:
+      return "🌋"  # Tornado
+    elif weather_id == 771:
+       return"💨"
+    elif weather_id == 781:
+           return"💭"
+    elif weather_id == 800:
+      return "☀"  # Clear sky
+    elif 801 <= weather_id < 900:
+      return "☁"  # Clouds
+    else:
+      return "❓"  # Unknown weather condition
+     
+if __name__ == "__main__":
+  app = QApplication(sys.argv)
+  weatherapp = UcheWeatherApp()
+  weatherapp.show()
+  sys.exit(app.exec_())
+
+
+
+
+
+  Hey, welcome to Python! This program makes a small desktop weather app. It creates a window, lets someone enter a city, asks OpenWeatherMap for its weather, then shows the temperature, a weather emoji, and a description.
+
+## 1. Imports: bring in tools
+
+```python
+import sys
+import requests
+```
+
+- `sys` gives Python access to system features. Here, it passes command-line arguments to the app and lets the program exit cleanly.
+- `requests` is a library for sending HTTP requests to websites and APIs. Your app uses it to ask the weather service for data.
+
+```python
+from PyQt5.QtWidgets import QApplication, QWidget, QLabel, QLineEdit, QPushButton, QVBoxLayout
+from PyQt5.QtCore import Qt
+```
+
+These import the pieces used to build the window:
+
+- `QApplication` runs the desktop app.
+- `QWidget` is the base class for a window.
+- `QLabel` displays text.
+- `QLineEdit` is a text-entry box.
+- `QPushButton` is a clickable button.
+- `QVBoxLayout` arranges widgets vertically.
+- `Qt` provides shared interface settings, including text alignment.
+
+## 2. Define the app window
+
+```python
+class UcheWeatherApp(QWidget):
+```
+
+This creates a class named `UcheWeatherApp`. A class is a template for making objects. Putting `(QWidget)` means your app window is based on PyQt’s window widget.
+
+```python
+def __init__(self):
+    super().__init__()
+```
+
+`__init__` runs when you create a new `UcheWeatherApp`. `self` refers to that particular app window. `super().__init__()` initializes the `QWidget` part so PyQt can set it up correctly.
+
+```python
+self.city_label = QLabel("Enter city name: ", self)
+self.city_input = QLineEdit(self)
+self.get_weather_button = QPushButton("Get Weather", self)
+self.temperature_label = QLabel(self)
+self.emoji_label = QLabel(self)
+self.label_description = QLabel(self)
+self.initUI()
+```
+
+These lines create the interface elements and save them as attributes of the window, so other methods can use them later.
+
+- `city_label` prompts for a city.
+- `city_input` is where the user types it.
+- `get_weather_button` starts the lookup.
+- `temperature_label`, `emoji_label`, and `label_description` will show the result.
+- `self.initUI()` calls your method that arranges and styles these elements.
+
+The `self.` prefix matters: it makes each widget available elsewhere in the class, such as inside `get_weather()`.
+
+## 3. Arrange and style the interface
+
+```python
+def initUI(self):
+    self.setWindowTitle("Weather App")
+    vbox = QVBoxLayout()
+```
+
+`initUI` configures the window. `setWindowTitle` sets the title shown in the window frame. `QVBoxLayout()` creates a vertical layout, meaning its contents go from top to bottom.
+
+```python
+vbox.addWidget(self.city_label)
+vbox.addWidget(self.city_input)
+...
+self.setLayout(vbox)
+```
+
+Each `addWidget` puts one interface element into that layout. `setLayout` attaches the finished layout to the window.
+
+```python
+self.city_label.setAlignment(Qt.AlignCenter)
+...
+```
+
+These lines center the text or content inside each widget.
+
+```python
+self.city_label.setObjectName("city_label")
+...
+```
+
+These assign names to widgets. The names let the stylesheet target specific widgets.
+
+```python
+self.setStyleSheet(""" ... """)
+```
+
+This is a CSS-like stylesheet for PyQt. It sets font sizes, font families, and other visual styles. For example:
+
+```css
+QLabel#temp_label {
+    font-size: 75px;
+}
+```
+
+targets a `QLabel` whose object name is `temp_label`.
+
+One small typo to fix: the first rule says `Qlabel` with a lowercase `l`. PyQt style selectors are case-sensitive; change it to `QLabel`:
+
+```css
+QLabel, QPushButton {
+    font-family: calibri;
+}
+```
+
+The comment above the stylesheet contains an API key. Since it has been shared in the pasted code, regenerate that key in your OpenWeatherMap account and avoid putting the replacement directly in source code you share or publish.
+
+## 4. Connect the button to the weather lookup
+
+```python
+self.get_weather_button.clicked.connect(self.get_weather)
+```
+
+This connects the button’s `clicked` signal to the `get_weather` method. In other words, when the user clicks the button, PyQt calls `self.get_weather()`.
+
+## 5. Request weather data
+
+```python
+def get_weather(self):
+    api_key = "..."
+    city = self.city_input.text()
+    url = f"https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}"
+```
+
+- `api_key` identifies your app to OpenWeatherMap.
+- `.text()` reads what the user typed.
+- The `f"..."` is an *f-string*: Python inserts the values of `{city}` and `{api_key}` into the URL.
+
+The URL asks the service for the current weather for that city. A safer version handles spaces and special characters in city names:
+
+```python
+response = requests.get(
+    "https://api.openweathermap.org/data/2.5/weather",
+    params={"q": city, "appid": api_key},
+    timeout=10,
+)
+```
+
+`params` lets `requests` encode the query values properly. `timeout=10` prevents the app from waiting indefinitely if the server doesn’t respond.
+
+## 6. Handle the response and errors
+
+```python
+try:
+    response = requests.get(url)
+    response.raise_for_status()
+    data = response.json()
+    print(data)
+```
+
+`try` marks code that could fail.
+
+- `requests.get(url)` sends a GET request to the API.
+- `raise_for_status()` raises an HTTP error for an unsuccessful status code, such as 404.
+- `.json()` converts the response body from JSON text into Python data, usually dictionaries and lists.
+- `print(data)` prints that data in the terminal, which is useful while learning and debugging.
+
+```python
+if data["cod"] == 200:
+    self.display_weather(data)
+```
+
+The API uses code `200` to indicate success. If the response is successful, the program passes the returned data to `display_weather`.
+
+The API key in your pasted code may have been exposed. Revoke or regenerate it, then load the new key from an environment variable instead of writing it directly into the program.
+
+Your exception handlers show an error message in the window:
+
+```python
+except requests.exceptions.HTTPError as http_err:
+```
+
+This handles an HTTP error raised by `raise_for_status()`. The `match response.status_code` block checks the status code and picks a message:
+
+- `400`: the request was invalid.
+- `401`: the API key may be missing or incorrect.
+- `404`: the city wasn’t found.
+- `500`, `502`, `503`, `504`: server or gateway problems.
+- `case _`: any other HTTP status.
+
+Other handlers cover connection failures, timeouts, redirects, and general request problems. The API may also return an error response with a `200` HTTP status, so later you may want to check the response’s `cod` and `message` fields explicitly.
+
+## 7. Show an error in the app
+
+```python
+def display_error(self, message):
+    self.temperature_label.setStyleSheet("font-size: 25px;")
+    self.temperature_label.setText(message)
+    self.emoji_label.clear()
+    self.label_description.clear()
+```
+
+This method takes an error message and displays it in the temperature label. It makes the text smaller, then clears the emoji and weather description so old results don’t remain visible.
+
+## 8. Show the weather
+
+```python
+def display_weather(self, data):
+    temperature_k = data["main"]["temp"]
+    temperature_c = temperature_k - 273.15
+    temperature_f = (temperature_k * 9/5) - 459.67
+```
+
+This reads the temperature from the API response. OpenWeatherMap returns Kelvin by default.
+
+- `temperature_c` converts Kelvin to Celsius.
+- `temperature_f` converts Kelvin to Fahrenheit.
+
+At the moment, the program calculates both but displays only Fahrenheit:
+
+```python
+self.temperature_label.setText(f"{temperature_f:.0f}°F")
+```
+
+The `:.0f` formats the number with zero digits after the decimal point. Some emoji and degree characters in the pasted file appear garbled, likely because of text encoding. In your Python file, use `"°F"` for the degree symbol and paste the emoji again as Unicode text if needed.
+
+```python
+weather_id = data["weather"][0]["id"]
+weather_description = data["weather"][0]["description"]
+```
+
+The API’s `weather` value is a list. `[0]` selects its first item. These lines read that item’s condition code and description.
+
+```python
+self.emoji_label.setText(self.get_weather_emoji(weather_id))
+self.label_description.setText(weather_description)
+```
+
+These put the matching emoji and description into their labels.
+
+## 9. Choose an emoji for the condition
+
+```python
+@staticmethod
+def get_weather_emoji(weather_id):
+```
+
+`@staticmethod` means this helper method doesn’t need to read or change the app window (`self`). It takes a weather condition ID and returns an emoji.
+
+The `if`/`elif` chain checks which range the ID belongs to. For example:
+
+```python
+if 200 <= weather_id < 232:
+    return "..."
+```
+
+means “if the ID is at least 200 and less than 232, return this emoji.” The other branches map drizzle, rain, snow, fog, clear sky, and clouds to different symbols. The final `else` is the fallback for an ID the code doesn’t recognize.
+
+The emoji strings look garbled in the pasted copy, so they may not display correctly as written. You can replace them with emoji typed directly into the file, or use plain text while you get the app working.
+
+## 10. Start the app
+
+```python
+if __name__ == "__main__":
+```
+
+This checks whether you ran this file directly. It keeps the app startup code from running automatically if another Python file imports this one.
+
+```python
+app = QApplication(sys.argv)
+weatherapp = UcheWeatherApp()
+weatherapp.show()
+sys.exit(app.exec_())
+```
+
+- `QApplication` starts the PyQt application and receives system arguments.
+- `UcheWeatherApp()` creates your window.
+- `.show()` makes the window visible.
+- `app.exec_()` starts PyQt’s event loop. The event loop waits for actions such as button clicks and responds to them.
+- `sys.exit(...)` passes the app’s exit result back to the operating system when the window closes.
+
+## How the whole app flows
+
+1. Python imports the libraries and defines the `UcheWeatherApp` class.
+2. The final `if` block creates and displays the window.
+3. The user enters a city and clicks the button.
+4. The button connection calls `get_weather()`.
+5. `get_weather()` requests data from the API and handles errors.
+6. On success, `display_weather()` fills in the temperature, emoji, and description.
+
+One learning note from your earlier Pylance warning: `import requests` is considered “not accessed” if no code uses it. This program *does* use it in `requests.get(...)` and `requests.exceptions...`, so that warning should go away when this code is saved in the file Pylance is checking.
+
